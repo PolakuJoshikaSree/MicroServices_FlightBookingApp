@@ -1,0 +1,8 @@
+server.port=8081
+spring.application.name=flight-service
+spring.data.mongodb.uri=mongodb://localhost:27017
+spring.data.mongodb.database=flight_db
+
+spring.cloud.config.enabled=false
+spring.cloud.config.import-check.enabled=false
+

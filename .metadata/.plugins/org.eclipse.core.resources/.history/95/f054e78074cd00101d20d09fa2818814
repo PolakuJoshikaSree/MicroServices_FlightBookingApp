@@ -1,0 +1,49 @@
+package com.flightservice.controller;
+
+import com.flightservice.model.Flight;
+import com.flightservice.service.FlightService;
+import lombok.RequiredArgsConstructor;
+
+import org.apache.hc.core5.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+//flight-service/src/main/java/com/flightservice/controller/FlightController.java
+
+@RestController
+@RequestMapping("/flights")
+@RequiredArgsConstructor
+public class FlightController {
+
+ private final FlightService service;
+
+ @PostMapping("/add")
+ public Mono<ResponseEntity<Flight>> addFlight(@RequestBody Flight flight) {
+     return service.addFlight(flight)
+             .map(saved -> ResponseEntity.status(HttpStatus.SC_CREATED).body(saved));
+ }
+
+ @GetMapping("/search")
+ public Flux<Flight> search(@RequestParam String from,
+                            @RequestParam String to,
+                            @RequestParam String date) {
+     return service.searchFlight(from, to, date);
+ }
+
+ // ✅ SIMPLE BOOLEAN ENDPOINTS FOR FEIGN
+
+ @PostMapping("/{id}/reserve")
+ public Mono<Boolean> reserve(@PathVariable String id,
+                              @RequestParam int seats) {
+     return service.reserveSeats(id, seats);   // Mono<Boolean>
+ }
+
+ @PostMapping("/{id}/release")
+ public Mono<Boolean> release(@PathVariable String id,
+                              @RequestParam int seats) {
+     return service.releaseSeats(id, seats);   // Mono<Boolean>
+ }
+}
+

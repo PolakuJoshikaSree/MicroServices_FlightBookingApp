@@ -1,0 +1,10 @@
+package com.bookingservice.model;
+
+import lombok.*;
+
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
+public class Passenger {
+    private String name;
+    private String gender; // instead of enum keeps simple
+    private int age;
+}

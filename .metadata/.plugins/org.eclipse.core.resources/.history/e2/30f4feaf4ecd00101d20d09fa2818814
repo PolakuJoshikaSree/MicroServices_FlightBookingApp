@@ -1,0 +1,5 @@
+package com.bookingservice.service.impl;
+
+public class BookingServiceImpl {
+
+}

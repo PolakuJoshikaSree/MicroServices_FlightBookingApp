@@ -1,0 +1,64 @@
+package com.flightservice.service.impl;
+
+import com.flightservice.model.Flight;
+import com.flightservice.model.Inventory;
+import com.flightservice.repository.FlightRepository;
+import com.flightservice.service.FlightService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.time.LocalDate;
+
+@Service
+@RequiredArgsConstructor
+public class FlightServiceImpl implements FlightService {
+
+    private final FlightRepository repo;
+
+    @Override
+    public Mono<Flight> addFlight(Flight flight) {
+
+        Inventory inv = flight.getInventory();
+        if (inv == null) {
+            inv = new Inventory();
+            flight.setInventory(inv);
+        }
+
+        // ensure availableSeats initialized
+        inv.setAvailableSeats(inv.getTotalSeats());
+
+        return repo.save(flight);
+    }
+
+    @Override
+    public Flux<Flight> searchFlight(String from, String to, String date) {
+        return repo.findByFromPlaceAndToPlaceAndSchedule_TravelDate(
+                from, to, LocalDate.parse(date)
+        );
+    }
+
+    @Override
+    public Mono<Boolean> reserveSeats(String flightId, int seats) {
+        return repo.findById(flightId)
+                .flatMap(flight -> {
+                    Inventory inv = flight.getInventory();
+                    if (inv.getAvailableSeats() < seats) {
+                        return Mono.just(false);
+                    }
+                    inv.setAvailableSeats(inv.getAvailableSeats() - seats);
+                    return repo.save(flight).thenReturn(true);
+                }).defaultIfEmpty(false);
+    }
+
+    @Override
+    public Mono<Boolean> releaseSeats(String flightId, int seats) {
+        return repo.findById(flightId)
+                .flatMap(flight -> {
+                    Inventory inv = flight.getInventory();
+                    inv.setAvailableSeats(inv.getAvailableSeats() + seats);
+                    return repo.save(flight).thenReturn(true);
+                }).defaultIfEmpty(false);
+    }
+}

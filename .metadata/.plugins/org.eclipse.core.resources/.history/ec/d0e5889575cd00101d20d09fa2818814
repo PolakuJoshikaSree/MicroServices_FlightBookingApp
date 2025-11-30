@@ -1,0 +1,18 @@
+package com.bookingservice.service;
+
+import com.bookingservice.model.Booking;
+import com.bookingservice.request.BookingRequest;
+import org.springframework.http.ResponseEntity;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+public interface BookingService {
+
+    Mono<ResponseEntity<Booking>> bookFlight(BookingRequest req);
+
+    Mono<ResponseEntity<Booking>> getByPnr(String pnr);
+
+    Flux<Booking> getHistoryByEmail(String email);
+
+    Mono<ResponseEntity<String>> cancel(String pnr);
+}

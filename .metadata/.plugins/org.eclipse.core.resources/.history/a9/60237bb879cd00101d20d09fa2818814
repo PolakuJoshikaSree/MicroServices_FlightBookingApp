@@ -1,0 +1,12 @@
+server.port=8081
+spring.application.name=FLIGHT-SERVICE
+
+spring.data.mongodb.uri=mongodb://localhost:27017/flight_db
+spring.data.mongodb.database=flight_db
+
+eureka.client.register-with-eureka=true
+eureka.client.fetch-registry=true
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka
+
+spring.cloud.config.enabled=false
+spring.cloud.config.import-check.enabled=false

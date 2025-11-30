@@ -1,0 +1,37 @@
+package com.bookingservice.controller;
+
+import com.bookingservice.model.Booking;
+import com.bookingservice.request.BookingRequest;
+import com.bookingservice.service.BookingService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/booking")
+@RequiredArgsConstructor
+public class BookingController {
+
+    private final BookingService service;
+
+    @PostMapping("/book")
+    public Booking book(@RequestBody BookingRequest req){
+        return service.bookFlight(req);
+    }
+
+    @GetMapping("/pnr/{pnr}")
+    public Booking get(@PathVariable String pnr){
+        return service.getByPnr(pnr);
+    }
+
+    @GetMapping("/history/{email}")
+    public List<Booking> getHistory(@PathVariable String email){
+        return service.getHistoryByEmail(email);
+    }
+
+    @DeleteMapping("/cancel/{pnr}")
+    public String cancel(@PathVariable String pnr){
+        return service.cancel(pnr);
+    }
+}

@@ -1,0 +1,56 @@
+package com.flightservice.service.impl;
+
+import com.flightservice.model.Flight;
+import com.flightservice.repository.FlightRepository;
+import com.flightservice.service.FlightService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.time.LocalDate;
+
+@Service
+@RequiredArgsConstructor
+public class FlightServiceImpl implements FlightService {
+
+    private final FlightRepository repo;
+
+    @Override
+    public Mono<Flight> addFlight(Flight flight) {
+
+        if(flight.getInventory() == null)   // If no inventory is provided, create one
+            flight.setInventory(new com.flightservice.model.Inventory(0,0));
+
+        // On first addition — availableSeats = totalSeats ✔
+        flight.getInventory().setAvailableSeats(flight.getInventory().getTotalSeats());
+
+        return repo.save(flight);
+    }
+
+    @Override
+    public Flux<Flight> searchFlight(String from, String to, String date) {
+        return repo.findByFromPlaceAndToPlaceAndSchedule_TravelDate(
+                from, to, LocalDate.parse(date)
+        );
+    }
+
+    @Override
+    public Mono<Boolean> reserveSeats(String flightId, int seats) {
+        return repo.findById(flightId)
+                .flatMap(f -> {
+                    if(f.getInventory().getAvailableSeats() < seats) return Mono.just(false);
+                    f.getInventory().setAvailableSeats(f.getInventory().getAvailableSeats() - seats);
+                    return repo.save(f).thenReturn(true);
+                }).defaultIfEmpty(false);
+    }
+
+    @Override
+    public Mono<Boolean> releaseSeats(String flightId, int seats) {
+        return repo.findById(flightId)
+                .flatMap(f -> {
+                    f.getInventory().setAvailableSeats(f.getInventory().getAvailableSeats() + seats);
+                    return repo.save(f).thenReturn(true);
+                }).defaultIfEmpty(false);
+    }
+}

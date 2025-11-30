@@ -1,0 +1,12 @@
+package com.flightservice.service;
+
+import com.flightservice.model.Flight;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+
+public interface FlightService {
+    Mono<Flight> addFlight(Flight f);
+    Flux<Flight> searchFlight(String from, String to, String date);
+    Mono<Boolean> reserveSeats(String flightId,int seats);
+    Mono<Boolean> releaseSeats(String flightId,int seats);
+}

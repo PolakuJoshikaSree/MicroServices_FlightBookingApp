@@ -1,0 +1,31 @@
+package com.bookingservice.model;
+
+import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Document(collection = "bookings")
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
+public class Booking {
+
+    @Id
+    private String id;
+
+    private String pnr;
+    private String flightId;
+
+    private String userName;
+    private String email;
+
+    private List<Passenger> passengers;
+    private boolean meal;             // true = veg, false = non-veg
+    private List<String> seats;       // seat numbers like "A1","A2"
+
+    private LocalDate journeyDate;
+    private LocalDateTime bookingDateTime;
+
+    private String status; // BOOKED / CANCELLED
+}

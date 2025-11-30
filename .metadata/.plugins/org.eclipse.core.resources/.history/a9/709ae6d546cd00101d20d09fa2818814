@@ -1,0 +1,35 @@
+package com.flightservice.model;
+
+import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.math.BigDecimal;
+
+@Document(collection = "flights")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class Flight {
+
+    @Id
+    private String id;
+
+    private String airlineName;
+    private String airlineLogo;
+
+    private String fromPlace;
+    private String toPlace;
+
+    private LocalDate travelDate;
+    private LocalTime travelTime;
+
+    private boolean roundTrip;
+    private BigDecimal oneWayPrice;
+    private BigDecimal roundTripPrice;
+
+    private int totalSeats;
+    private int availableSeats;
+}

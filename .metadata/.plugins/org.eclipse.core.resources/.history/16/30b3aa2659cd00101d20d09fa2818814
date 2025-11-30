@@ -1,0 +1,46 @@
+package com.bookingservice.controller;
+
+import com.bookingservice.model.Booking;
+import com.bookingservice.request.BookingRequest;
+import com.bookingservice.service.BookingService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/booking")
+@RequiredArgsConstructor
+public class BookingController {
+
+    private final BookingService service;
+
+    @PostMapping("/book")
+    public ResponseEntity<Booking> book(@RequestBody BookingRequest req){
+        Booking saved = service.bookFlight(req);
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);  // <-- result = 201 CREATED ✔
+    }
+
+    @GetMapping("/pnr/{pnr}")
+    public ResponseEntity<Booking> getByPnr(@PathVariable String pnr){
+        Booking b = service.getByPnr(pnr);
+        return b != null ? ResponseEntity.ok(b) :
+                ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+    }
+
+    @GetMapping("/history/{email}")
+    public ResponseEntity<?> history(@PathVariable String email){
+        var list = service.getHistoryByEmail(email);
+        return list.isEmpty()
+                ? ResponseEntity.status(HttpStatus.NOT_FOUND).body("No bookings found!")
+                : ResponseEntity.ok(list);
+    }
+
+    @DeleteMapping("/cancel/{pnr}")
+    public ResponseEntity<String> cancel(@PathVariable String pnr){
+        String msg = service.cancel(pnr);
+        return msg.equals("Cancelled Successfully")
+                ? ResponseEntity.ok(msg)
+                : ResponseEntity.status(HttpStatus.NOT_FOUND).body(msg);
+    }
+}

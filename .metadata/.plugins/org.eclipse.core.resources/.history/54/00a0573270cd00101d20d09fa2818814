@@ -1,0 +1,111 @@
+package com.bookingservice.service.impl;
+
+import com.bookingservice.client.FlightClient;
+import com.bookingservice.model.Booking;
+import com.bookingservice.repository.BookingRepository;
+import com.bookingservice.request.BookingRequest;
+import com.bookingservice.service.BookingService;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class BookingServiceImpl implements BookingService {
+
+    private final BookingRepository repo;
+    private final FlightClient flightClient;
+
+    // ================= BOOKING (ONE-WAY + RETURN) ======================
+    @Override
+    @CircuitBreaker(name = "bookingCB", fallbackMethod = "fallbackBooking")
+    public Mono<Booking> bookFlight(BookingRequest req) {
+
+        // ---------- ONE WAY ----------
+        if (req.getTripType().equalsIgnoreCase("ONE_WAY")) {
+
+            Boolean ok = flightClient.reserveSeats(
+                    req.getFlightIdOnward(),
+                    req.getSeatNumbersOnward().size()
+            );
+
+            if (!ok) return Mono.error(new RuntimeException("Not enough seats for ONE-WAY ❌"));
+        }
+
+        // ---------- ROUND TRIP ----------
+        else if (req.getTripType().equalsIgnoreCase("ROUND_TRIP")) {
+
+            Boolean ok1 = flightClient.reserveSeats(req.getFlightIdOnward(),
+                    req.getSeatNumbersOnward().size());
+            Boolean ok2 = flightClient.reserveSeats(req.getFlightIdReturn(),
+                    req.getSeatNumbersReturn().size());
+
+            if (!ok1 || !ok2)
+                return Mono.error(new RuntimeException("Seats unavailable for ROUND TRIP ❌"));
+        }
+
+        // --------- SAVE BOOKING ----------
+        Booking saved = Booking.builder()
+                .id(null)
+                .pnr(UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .tripType(req.getTripType())
+                .flightIdOnward(req.getFlightIdOnward())
+                .flightIdReturn(req.getFlightIdReturn())
+                .seatNumbersOnward(req.getSeatNumbersOnward())
+                .seatNumbersReturn(req.getSeatNumbersReturn())
+                .userName(req.getUserName())
+                .email(req.getEmail())
+                .passengers(req.getPassengers())
+                .meal(req.isMeal())
+                .journeyDate(req.getJourneyDate())
+                .returnDate(req.getReturnDate())
+                .bookingDateTime(LocalDateTime.now())
+                .status("BOOKED")
+                .build();
+
+        return repo.save(saved);
+    }
+
+    // FALLBACK
+    public Mono<Booking> fallbackBooking(BookingRequest req, Throwable ex) {
+        return Mono.error(new RuntimeException("Flight-Service Unavailable — Try Later ⚠"));
+    }
+
+    // ================= GET BY PNR ======================
+    @Override
+    public Mono<Booking> getByPnr(String pnr) {
+        return repo.findByPnr(pnr);
+    }
+
+    // ================= HISTORY =========================
+    @Override
+    public Flux<Booking> getHistoryByEmail(String email) {
+        return repo.findByEmail(email);
+    }
+
+    // ================= CANCEL ==========================
+    @Override
+    public Mono<String> cancel(String pnr) {
+        return repo.findByPnr(pnr)
+                .flatMap(b -> {
+
+                    // Cancel onward
+                    flightClient.releaseSeats(b.getFlightIdOnward(),
+                            b.getSeatNumbersOnward().size());
+
+                    // Cancel return for round-trip
+                    if ("ROUND_TRIP".equalsIgnoreCase(b.getTripType())) {
+                        flightClient.releaseSeats(b.getFlightIdReturn(),
+                                b.getSeatNumbersReturn().size());
+                    }
+
+                    return repo.delete(b).thenReturn("Booking Cancelled Successfully ✔");
+                })
+                .defaultIfEmpty(" Invalid PNR - Booking Not Found");
+    }
+}

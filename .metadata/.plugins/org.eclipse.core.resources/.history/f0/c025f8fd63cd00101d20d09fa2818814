@@ -1,0 +1,12 @@
+package com.flightservice.model;
+
+import lombok.*;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class Seat {
+    private String seatNumber;
+    private boolean booked;
+}

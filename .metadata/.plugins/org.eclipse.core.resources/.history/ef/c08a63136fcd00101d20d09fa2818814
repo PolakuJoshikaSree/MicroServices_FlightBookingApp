@@ -1,0 +1,48 @@
+package com.bookingservice.controller;
+
+import com.bookingservice.model.Booking;
+import com.bookingservice.request.BookingRequest;
+import com.bookingservice.service.BookingService;
+import lombok.RequiredArgsConstructor;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+
+@RestController
+@RequestMapping("/booking")
+@RequiredArgsConstructor
+
+public class BookingController {
+
+ private final BookingService service;
+
+ @PostMapping("/book")
+ public Mono<ResponseEntity<Booking>> book(@RequestBody BookingRequest req) {
+     return service.bookFlight(req)
+             .map(b -> ResponseEntity.status(HttpStatus.CREATED).body(b));
+ }
+
+ @GetMapping("/pnr/{pnr}")
+ public Mono<ResponseEntity<Booking>> getByPnr(@PathVariable String pnr) {
+     return service.getByPnr(pnr)
+             .map(ResponseEntity::ok)
+             .defaultIfEmpty(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+ }
+
+ @GetMapping("/history/{email}")
+ public Flux<Booking> history(@PathVariable String email) {
+     return service.getHistoryByEmail(email);
+ }
+
+ @DeleteMapping("/cancel/{pnr}")
+ public Mono<ResponseEntity<String>> cancel(@PathVariable String pnr) {
+     return service.cancel(pnr)
+             .map(msg -> msg.equals("Cancelled Successfully")
+                     ? ResponseEntity.ok(msg)
+                     : ResponseEntity.status(HttpStatus.NOT_FOUND).body(msg));
+ }
+}

@@ -1,0 +1,52 @@
+package com.bookingservice.controller;
+
+import com.bookingservice.model.Booking;
+import com.bookingservice.request.BookingRequest;
+import com.bookingservice.service.BookingService;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+@RestController
+@RequestMapping("/booking")
+@RequiredArgsConstructor
+public class BookingController {
+
+    private final BookingService service;
+
+    /* -------------------------------------------------------
+                BOOK FLIGHT  → 201 CREATED
+       ------------------------------------------------------- */
+    @PostMapping("/book")
+    public Mono<ResponseEntity<Booking>> book(@RequestBody BookingRequest req) {
+        return service.bookFlight(req);  // ResponseEntity + 201 handled inside service
+    }
+
+    /* -------------------------------------------------------
+                GET BOOKING BY PNR → 200 / 404
+       ------------------------------------------------------- */
+    @GetMapping("/{pnr}")
+    public Mono<ResponseEntity<Booking>> getBooking(@PathVariable String pnr) {
+        return service.getByPnr(pnr); // Maps to OK or NOT_FOUND
+    }
+
+    /* -------------------------------------------------------
+                GET HISTORY BY EMAIL → 200
+       ------------------------------------------------------- */
+    @GetMapping("/history/{email}")
+    public Flux<Booking> history(@PathVariable String email) {
+        return service.getHistoryByEmail(email);
+    }
+
+    /* -------------------------------------------------------
+                CANCEL BOOKING → 200 / 404 / 400
+       ------------------------------------------------------- */
+    @DeleteMapping("/cancel/{pnr}")
+    public Mono<ResponseEntity<String>> cancel(@PathVariable String pnr) {
+        return service.cancel(pnr);  // Full status mapping inside service
+    }
+}

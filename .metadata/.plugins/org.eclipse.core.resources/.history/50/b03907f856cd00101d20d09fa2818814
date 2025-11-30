@@ -1,0 +1,33 @@
+package com.flightservice.model;
+
+import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import java.util.List;
+
+@Document(collection = "flights")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class Flight {
+
+    @Id
+    private String id;
+
+    private Airline airline;             
+    private FlightSchedule schedule;     
+    private Fare fare;                  
+    private Inventory inventory;        
+    private TripType tripType;          
+
+    private String fromPlace;
+    private String toPlace;
+
+    private List<Seat> seats;
+
+	public int getAvailableSeats() {
+		// TODO Auto-generated method stub
+		return 0;
+	}           
+}

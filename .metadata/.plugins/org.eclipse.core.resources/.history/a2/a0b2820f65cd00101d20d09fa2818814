@@ -1,0 +1,42 @@
+package com.bookingservice.model;
+
+import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Document("bookings")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class Booking {
+
+    @Id
+    private String id;
+
+    private String tripType;                  // ONE_WAY / ROUND_TRIP
+
+    private String flightIdOnward;
+    private String flightIdReturn;            // null if ONE_WAY
+
+    private List<String> seatNumbersOnward;
+    private List<String> seatNumbersReturn;   // null if ONE_WAY
+
+    private String userName;
+    private String email;
+
+    private List<Passenger> passengers;
+    private boolean meal;
+
+    private LocalDate journeyDate;
+    private LocalDate returnDate;             // only for round trip
+
+    private LocalDateTime bookingDateTime;
+
+    private String pnr;                       // auto-generated
+    private String status;                    // BOOKED / CANCELLED
+}

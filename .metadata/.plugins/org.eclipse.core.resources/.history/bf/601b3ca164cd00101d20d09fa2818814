@@ -1,0 +1,26 @@
+package com.bookingservice.request;
+
+import com.bookingservice.model.Passenger;
+import lombok.*;
+import java.time.LocalDate;
+import java.util.List;
+
+@Data @AllArgsConstructor @NoArgsConstructor @Builder
+public class BookingRequest {
+
+    private String tripType;                 // ONE_WAY / ROUND_TRIP
+
+    private String flightIdOnward;           // First flight
+    private String flightIdReturn;           // Second flight (optional)
+
+    private String userName;
+    private String email;
+
+    private List<Passenger> passengers;
+    private List<String> seatNumbersOnward;
+    private List<String> seatNumbersReturn;  // Only used if round trip
+
+    private boolean meal;
+    private LocalDate onwardDate;
+    private LocalDate returnDate;            // Needed only for round trip
+}

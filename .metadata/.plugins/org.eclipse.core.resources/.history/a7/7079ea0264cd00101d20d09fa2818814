@@ -1,0 +1,11 @@
+package com.flightservice.model;
+
+import lombok.*;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class Airline {
+    private String name;
+}

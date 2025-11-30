@@ -1,0 +1,19 @@
+package com.bookingservice.request;
+
+import com.bookingservice.model.Passenger;
+import lombok.*;
+import java.time.LocalDate;
+import java.util.List;
+
+@Data @AllArgsConstructor @NoArgsConstructor @Builder
+public class BookingRequest {
+    private String flightId;
+    private String userName;
+    private String email;
+
+    private List<Passenger> passengers;
+    private List<String> seatNumbers; 
+
+    private boolean meal;
+    private LocalDate journeyDate;
+}

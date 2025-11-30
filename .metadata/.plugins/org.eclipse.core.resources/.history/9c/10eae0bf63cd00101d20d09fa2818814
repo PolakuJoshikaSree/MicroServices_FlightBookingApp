@@ -1,0 +1,14 @@
+package com.flightservice.model;
+
+import lombok.*;
+import java.time.LocalDate;
+import java.time.LocalTime;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class FlightSchedule {
+    private LocalDate travelDate;
+    private LocalTime travelTime;
+}

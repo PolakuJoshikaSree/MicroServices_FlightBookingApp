@@ -1,0 +1,50 @@
+package com.flightservice.controller;
+
+import com.flightservice.model.Flight;
+import com.flightservice.service.FlightService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+@RestController
+@RequestMapping("/flights")
+@RequiredArgsConstructor
+public class FlightController {
+
+    private final FlightService service;
+
+    // ************** 201 CREATED on ADD **************
+    @PostMapping("/add")
+    public Mono<ResponseEntity<Flight>> addFlight(@RequestBody Flight flight) {
+        return service.addFlight(flight)
+                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved)); // <-- 201 CREATED ✔
+    }
+
+    @GetMapping("/search")
+    public Flux<Flight> search(@RequestParam String from,
+                               @RequestParam String to,
+                               @RequestParam String date){
+        return service.searchFlight(from,to,date);
+    }
+
+    @PostMapping("/{id}/reserve")
+    public Mono<ResponseEntity<String>> reserve(@PathVariable String id,@RequestParam int seats){
+        return service.reserveSeats(id,seats)
+                .map(success -> success
+                        ? ResponseEntity.ok("Seats booked ✔")
+                        : ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not enough seats ❌")
+                );
+    }
+
+    @PostMapping("/{id}/release")
+    public Mono<ResponseEntity<String>> release(@PathVariable String id,@RequestParam int seats){
+        return service.releaseSeats(id,seats)
+                .map(success -> success
+                        ? ResponseEntity.ok("Seats released ✔")
+                        : ResponseEntity.status(HttpStatus.NOT_FOUND).body("Flight not found ❌")
+                );
+    }
+}

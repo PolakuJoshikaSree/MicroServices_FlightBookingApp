@@ -1,0 +1,47 @@
+package com.bookingservice.controller;
+
+import com.bookingservice.model.Booking;
+import com.bookingservice.request.BookingRequest;
+import com.bookingservice.service.BookingService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
+import java.util.List;
+
+@RestController
+@RequestMapping("/booking")
+@RequiredArgsConstructor
+public class BookingController {
+
+    private final BookingService service;
+
+    @PostMapping("/book")
+    public Mono<ResponseEntity<Booking>> book(@RequestBody BookingRequest req) {
+        return Mono.fromCallable(() -> service.bookFlight(req))    // call service
+                .map(b -> ResponseEntity.status(HttpStatus.CREATED).body(b)) // 201 CREATED
+                .onErrorResume(e -> Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).build()));
+    }
+
+    @GetMapping("/{pnr}")
+    public Mono<ResponseEntity<Booking>> getByPnr(@PathVariable String pnr) {
+        return Mono.fromCallable(() -> service.getByPnr(pnr))
+                .map(ResponseEntity::ok)                          // 200 OK
+                .defaultIfEmpty(ResponseEntity.notFound().build());// 404
+    }
+
+    @GetMapping("/history/{email}")
+    public Mono<ResponseEntity<List<Booking>>> history(@PathVariable String email) {
+        return Mono.fromCallable(() -> service.getHistoryByEmail(email))
+                .map(ResponseEntity::ok)                          // 200 OK
+                .defaultIfEmpty(ResponseEntity.notFound().build());// 404
+    }
+
+    @DeleteMapping("/cancel/{pnr}")
+    public Mono<ResponseEntity<String>> cancel(@PathVariable String pnr) {
+        return Mono.fromCallable(() -> service.cancel(pnr))
+                .map(msg -> ResponseEntity.ok(msg))               // 200 OK
+                .defaultIfEmpty(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+    }
+}

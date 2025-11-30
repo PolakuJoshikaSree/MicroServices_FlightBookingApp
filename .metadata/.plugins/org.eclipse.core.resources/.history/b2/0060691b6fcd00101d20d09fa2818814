@@ -1,0 +1,139 @@
+package com.bookingservice.service.impl;
+
+import com.bookingservice.client.FlightClient;
+import com.bookingservice.model.Booking;
+import com.bookingservice.repository.BookingRepository;
+import com.bookingservice.request.BookingRequest;
+import com.bookingservice.service.BookingService;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+//booking-service/src/main/java/com/bookingservice/service/impl/BookingServiceImpl.java
+
+@Service
+@RequiredArgsConstructor
+public class BookingServiceImpl implements BookingService {
+
+ private final BookingRepository repo;
+ private final FlightClient flightClient;
+
+ // =====================================================
+ //  CREATE BOOKING (ONE-WAY & ROUND-TRIP SUPPORT)
+ // =====================================================
+ @Override
+ @CircuitBreaker(name = "bookingCB", fallbackMethod = "bookingFallback")
+ public Mono<Booking> bookFlight(BookingRequest req) {
+
+     String tripType = req.getTripType() == null
+             ? "ONE_WAY"
+             : req.getTripType().toUpperCase();
+
+     // ------------- ONE-WAY -------------
+     if ("ONE_WAY".equals(tripType)) {
+
+         Boolean ok = flightClient.reserveSeats(
+                 req.getFlightIdOnward(),
+                 req.getSeatNumbersOnward().size()
+         );
+
+         if (!Boolean.TRUE.equals(ok)) {
+             return Mono.error(new RuntimeException("No seats available for onward flight"));
+         }
+     }
+
+     // ------------- ROUND TRIP -------------
+     else if ("ROUND_TRIP".equals(tripType)) {
+
+         Boolean ok1 = flightClient.reserveSeats(
+                 req.getFlightIdOnward(),
+                 req.getSeatNumbersOnward().size()
+         );
+
+         Boolean ok2 = flightClient.reserveSeats(
+                 req.getFlightIdReturn(),
+                 req.getSeatNumbersReturn().size()
+         );
+
+         if (!Boolean.TRUE.equals(ok1) || !Boolean.TRUE.equals(ok2)) {
+             return Mono.error(new RuntimeException("Seats unavailable for ROUND TRIP"));
+         }
+     } else {
+         return Mono.error(new RuntimeException("Invalid tripType. Use ONE_WAY or ROUND_TRIP"));
+     }
+
+     // ------ Build and save booking ------
+     Booking booking = Booking.builder()
+             .pnr(UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+             .tripType(tripType)
+             .flightIdOnward(req.getFlightIdOnward())
+             .flightIdReturn(req.getFlightIdReturn())          // null for ONE_WAY
+             .seatNumbersOnward(req.getSeatNumbersOnward())
+             .seatNumbersReturn(req.getSeatNumbersReturn())    // null for ONE_WAY
+             .userName(req.getUserName())
+             .email(req.getEmail())
+             .passengers(req.getPassengers())
+             .meal(req.isMeal())
+             .journeyDate(req.getJourneyDate())
+             .returnDate(req.getReturnDate())                  // only for round trip
+             .bookingDateTime(LocalDateTime.now())
+             .status("BOOKED")
+             .build();
+
+     return repo.save(booking);
+ }
+
+ // fallback MUST have same args + Throwable, return Mono<Booking>
+ public Mono<Booking> bookingFallback(BookingRequest req, Throwable ex) {
+     return Mono.error(new RuntimeException("Flight-Service DOWN — Try Later"));
+ }
+
+ // ----------------- GET BY PNR -----------------
+ @Override
+ public Mono<Booking> getByPnr(String pnr) {
+     return repo.findByPnr(pnr);
+ }
+
+ // ----------------- HISTORY BY EMAIL -----------
+ @Override
+ public Flux<Booking> getHistoryByEmail(String email) {
+     return repo.findByEmail(email);
+ }
+
+ // ----------------- CANCEL ---------------------
+ @Override
+ @CircuitBreaker(name = "cancelCB", fallbackMethod = "cancelFallback")
+ public Mono<String> cancel(String pnr) {
+     return repo.findByPnr(pnr)
+             .flatMap(b -> {
+                 // release onward
+                 flightClient.releaseSeats(
+                         b.getFlightIdOnward(),
+                         b.getSeatNumbersOnward().size()
+                 );
+
+                 // release return if ROUND_TRIP
+                 if ("ROUND_TRIP".equalsIgnoreCase(b.getTripType())
+                         && b.getFlightIdReturn() != null
+                         && b.getSeatNumbersReturn() != null) {
+
+                     flightClient.releaseSeats(
+                             b.getFlightIdReturn(),
+                             b.getSeatNumbersReturn().size()
+                     );
+                 }
+
+                 return repo.delete(b).thenReturn("Cancelled Successfully");
+             })
+             .defaultIfEmpty("PNR Not Found");
+ }
+
+ public Mono<String> cancelFallback(String pnr, Throwable ex) {
+     return Mono.just("Flight-Service unavailable, Try later");
+ }
+}

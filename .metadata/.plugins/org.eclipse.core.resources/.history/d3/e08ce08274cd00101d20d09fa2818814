@@ -1,0 +1,43 @@
+package com.flightservice.service.impl;
+
+import com.flightservice.model.Flight;
+import com.flightservice.repository.FlightRepository;
+import com.flightservice.service.FlightService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+
+@Service @RequiredArgsConstructor
+public class FlightServiceImpl implements FlightService {
+
+    private final FlightRepository repo;
+
+    public Mono<Flight> addFlight(Flight f){
+        f.setAvailableSeats(f.getTotalSeats());
+        return repo.save(f);
+    }
+
+    public Flux<Flight> searchFlight(String from,String to,String date){
+        return repo.findByFromCityAndToCityAndDate(from,to,date);
+    }
+
+    public Mono<Boolean> reserveSeats(String id,int seats){
+        return repo.findById(id)
+                .flatMap(f -> {
+                    if (f.getAvailableSeats() >= seats) {
+                        f.setAvailableSeats(f.getAvailableSeats() - seats);
+                        return repo.save(f).thenReturn(true);
+                    }
+                    return Mono.just(false);
+                });
+    }
+
+    public Mono<Boolean> releaseSeats(String id,int seats){
+        return repo.findById(id)
+                .flatMap(f -> {
+                    f.setAvailableSeats(f.getAvailableSeats() + seats);
+                    return repo.save(f).thenReturn(true);
+                });
+    }
+}

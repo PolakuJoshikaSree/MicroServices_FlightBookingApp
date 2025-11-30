@@ -1,0 +1,13 @@
+package com.flightservice.model;
+
+import lombok.*;
+import java.math.BigDecimal;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class Fare {
+    private BigDecimal oneWayPrice;
+    private BigDecimal roundTripPrice;
+}

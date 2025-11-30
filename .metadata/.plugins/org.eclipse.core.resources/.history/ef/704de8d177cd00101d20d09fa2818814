@@ -1,0 +1,50 @@
+package com.flightservice.service.impl;
+
+import com.flightservice.model.Flight;
+import com.flightservice.repository.FlightRepository;
+import com.flightservice.service.FlightService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class FlightServiceImpl implements FlightService {
+
+    private final FlightRepository repo;
+
+    @Override
+    public Flight addFlight(Flight f) {
+        f.setAvailableSeats(f.getTotalSeats());
+        return repo.save(f).block();   // block = convert reactive to synchronous
+    }
+
+    @Override
+    public List<Flight> searchFlight(String from, String to, String date){
+        return repo.findByFromCityAndToCityAndDate(from, to, date).collectList().block();
+    }
+
+    @Override
+    public Boolean reserveSeats(String id,int seats){
+        Flight f = repo.findById(id).block(); 
+        if(f == null) return false;
+
+        if(f.getAvailableSeats() >= seats){
+            f.setAvailableSeats(f.getAvailableSeats()-seats);
+            repo.save(f).block();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public Boolean releaseSeats(String id,int seats){
+        Flight f = repo.findById(id).block();
+        if(f == null) return false;
+
+        f.setAvailableSeats(f.getAvailableSeats()+seats);
+        repo.save(f).block();
+        return true;
+    }
+}

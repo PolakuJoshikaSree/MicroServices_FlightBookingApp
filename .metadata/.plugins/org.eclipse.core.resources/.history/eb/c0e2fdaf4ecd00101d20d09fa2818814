@@ -1,0 +1,5 @@
+package com.bookingservice.client;
+
+public class FlightClient {
+
+}

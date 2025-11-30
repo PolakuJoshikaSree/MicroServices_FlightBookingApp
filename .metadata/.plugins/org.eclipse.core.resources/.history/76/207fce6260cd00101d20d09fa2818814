@@ -1,0 +1,76 @@
+package com.bookingservice.service.impl;
+
+import com.bookingservice.client.FlightClient;
+import com.bookingservice.model.Booking;
+import com.bookingservice.repository.BookingRepository;
+import com.bookingservice.request.BookingRequest;
+import com.bookingservice.service.BookingService;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class BookingServiceImpl implements BookingService {
+
+    private final BookingRepository repo;
+    private final FlightClient flightClient;
+
+    @Override
+    @CircuitBreaker(name = "bookingCB", fallbackMethod = "bookingFallback")
+    public Mono<Booking> bookFlight(BookingRequest req) {
+
+        boolean seatBooked = flightClient.reserveSeats(req.getFlightId(), req.getSeatNumbers().size());
+        if (!seatBooked) return Mono.error(new RuntimeException("Seats not available ❌"));
+
+        Booking booking = Booking.builder()
+                .pnr(UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .flightId(req.getFlightId())
+                .userName(req.getUserName())
+                .email(req.getEmail())
+                .seatNumbers(req.getSeatNumbers())
+                .passengers(req.getPassengers())
+                .meal(req.isMeal())
+                .journeyDate(req.getJourneyDate())
+                .bookingDateTime(LocalDateTime.now())
+                .status("BOOKED")
+                .build();
+
+        return repo.save(booking);  // Saves to MongoDB ✔
+    }
+
+    public Mono<Booking> bookingFallback(BookingRequest req, Throwable ex) {
+        return Mono.error(new RuntimeException("Flight-Service Down ❌ Try later"));
+    }
+
+    @Override
+    public Mono<Booking> getByPnr(String pnr) {
+        return repo.findByPnr(pnr);
+    }
+
+    @Override
+    public Flux<Booking> getHistoryByEmail(String email) {
+        return repo.findByEmail(email);
+    }
+
+    @Override
+    @CircuitBreaker(name = "cancelCB", fallbackMethod = "cancelFallback")
+    public Mono<String> cancel(String pnr) {
+
+        return repo.findByPnr(pnr)
+                .flatMap(b -> {
+                    flightClient.releaseSeats(b.getFlightId(), b.getSeatNumbers().size());
+                    return repo.delete(b).thenReturn("Cancelled Successfully");
+                })
+                .defaultIfEmpty("No booking found");
+    }
+
+    public Mono<String> cancelFallback(String pnr, Throwable ex) {
+        return Mono.just("Flight Service Down , try later");
+    }
+}

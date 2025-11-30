@@ -1,0 +1,17 @@
+package com.bookingservice.service;
+
+import com.bookingservice.model.Booking;
+import com.bookingservice.request.BookingRequest;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+
+public interface BookingService {
+
+    Mono<Booking> bookFlight(BookingRequest req);
+
+    Mono<Booking> getByPnr(String pnr);
+
+    Flux<Booking> getHistoryByEmail(String email);
+
+    Mono<String> cancel(String pnr);
+}

@@ -1,0 +1,155 @@
+package com.bookingservice.service.impl;
+
+import com.bookingservice.client.FlightClient;
+import com.bookingservice.model.Booking;
+import com.bookingservice.repository.BookingRepository;
+import com.bookingservice.request.BookingRequest;
+import com.bookingservice.service.BookingService;
+
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class BookingServiceImpl implements BookingService {
+
+    private final BookingRepository repo;
+    private final FlightClient flightClient;
+
+    /* ======================================================
+                      BOOK TICKET  -> 201 CREATED
+       ====================================================== */
+    @Override
+    @CircuitBreaker(name = "bookingCB", fallbackMethod = "bookingFallback")
+    public Mono<ResponseEntity<Booking>> bookFlight(BookingRequest req) {
+
+        Mono<Boolean> onward = flightClient.reserveSeats(
+                req.getFlightIdOnward(),
+                req.getSeatNumbersOnward().size()
+        );
+
+        Mono<Boolean> returning = req.getTripType().equalsIgnoreCase("ROUND_TRIP") ?
+                flightClient.reserveSeats(
+                        req.getFlightIdReturn(),
+                        req.getSeatNumbersReturn().size()
+                ) : Mono.just(true);
+
+        return Mono.zip(onward, returning)
+                .flatMap(result -> {
+
+                    boolean onwardOK = result.getT1();
+                    boolean returnOK = result.getT2();
+
+                    if (!onwardOK || !returnOK) {
+                        return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(null)); // SEAT FAILURE
+                    }
+
+                    Booking booking = Booking.builder()
+                            .pnr(UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                            .tripType(req.getTripType())
+                            .flightIdOnward(req.getFlightIdOnward())
+                            .flightIdReturn(req.getTripType().equalsIgnoreCase("ROUND_TRIP") ?
+                                    req.getFlightIdReturn() : null)
+                            .seatNumbersOnward(req.getSeatNumbersOnward())
+                            .seatNumbersReturn(req.getTripType().equalsIgnoreCase("ROUND_TRIP") ?
+                                    req.getSeatNumbersReturn() : null)
+                            .userName(req.getUserName())
+                            .email(req.getEmail())
+                            .passengers(req.getPassengers())
+                            .meal(req.isMeal())
+                            .journeyDate(req.getJourneyDate())
+                            .returnDate(req.getTripType().equalsIgnoreCase("ROUND_TRIP") ?
+                                    req.getReturnDate() : null)
+                            .bookingDateTime(LocalDateTime.now())
+                            .status("BOOKED")
+                            .build();
+
+                    return repo.save(booking)
+                            .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved)); // 201 CREATED
+                });
+    }
+
+    // Fallback when flight-service is down
+    private Mono<ResponseEntity<Booking>> bookingFallback(BookingRequest req, Throwable ex) {
+        return Mono.just(
+                ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(null)
+        );
+    }
+
+
+    /* ======================================================
+                   GET BOOKING BY PNR  -> 200 / 404
+       ====================================================== */
+    @Override
+    public Mono<ResponseEntity<Booking>> getByPnr(String pnr) {
+        return repo.findByPnr(pnr)
+                .map(b -> ResponseEntity.ok(b))                         // FOUND → 200 OK
+                .defaultIfEmpty(ResponseEntity.notFound().build());    // NOT FOUND → 404
+    }
+
+
+    /* ======================================================
+                   HISTORY BY EMAIL -> ALWAYS 200
+       ====================================================== */
+    @Override
+    public Flux<Booking> getHistoryByEmail(String email) {
+        return repo.findByEmail(email);
+    }
+
+
+    /* ======================================================
+                     CANCEL TICKET -> 200 / 404 / 400
+       ====================================================== */
+    @Override
+    @CircuitBreaker(name = "cancelCB", fallbackMethod = "cancelFallback")
+    public Mono<ResponseEntity<String>> cancel(String pnr) {
+
+        return repo.findByPnr(pnr)
+                .flatMap(b -> {
+
+                    LocalDateTime now = LocalDateTime.now();
+                    LocalDateTime journey = b.getJourneyDate().atStartOfDay();
+
+                    // ❗ RULE -> Must be >24 hrs before travel
+                    if (!now.isBefore(journey.minusHours(24))) {
+                        return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body("Cancellation allowed ONLY before 24 hours of journey"));
+                    }
+
+                    Mono<Boolean> releaseOnward = flightClient.releaseSeats(
+                            b.getFlightIdOnward(),
+                            b.getSeatNumbersOnward().size()
+                    );
+
+                    Mono<Boolean> releaseReturn = b.getTripType().equalsIgnoreCase("ROUND_TRIP") ?
+                            flightClient.releaseSeats(
+                                    b.getFlightIdReturn(),
+                                    b.getSeatNumbersReturn().size()
+                            ) : Mono.just(true);
+
+                    return Mono.zip(releaseOnward, releaseReturn)
+                            .then(repo.delete(b)
+                                    .thenReturn(ResponseEntity.ok("Ticket Cancelled Successfully")));
+                })
+                .defaultIfEmpty(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("PNR Not Found!")); // 404
+    }
+
+    // Cancel fallback
+    private Mono<ResponseEntity<String>> cancelFallback(String pnr, Throwable ex) {
+        return Mono.just(
+                ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                        .body("Flight-Service DOWN - Cancel later")
+        );
+    }
+}
